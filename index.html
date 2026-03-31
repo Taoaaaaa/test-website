@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>涛哥帮帮忙 - 智能表格处理</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+</head>
+<body>
+    <div class="background-gradient"></div>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">◆</div>
+                <span class="logo-text">SmartTable</span>
+            </div>
+            <div class="api-status" id="apiStatus">
+                <span class="status-dot"></span>
+                <span class="status-text">API已配置</span>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <div class="left-section">
+                <h1 class="title">涛哥帮帮忙</h1>
+                <p class="description">
+                    SmartTable 是作者 <span class="author-name">彭云涛</span> 开发的TOCAO下一代表格工具，通过GLMAI免费大模型技术
+                    帮助用户快速将非结构化内容转换为结构化表格，提升工作效率。并且附带了AI识图、AI生图等实用功能。
+                </p>
+                <ul class="features">
+                    <li>
+                        <span class="feature-dot"></span>
+                        AI 智能识别图片转表格
+                    </li>
+                    <li>
+                        <span class="feature-dot"></span>
+                        支持 Word 文档提取
+                    </li>
+                    <li>
+                        <span class="feature-dot"></span>
+                        智能表格数据处理
+                    </li>
+                    <li>
+                        <span class="feature-dot"></span>
+                        AI 图像生成
+                    </li>
+                    <li>
+                        <span class="feature-dot"></span>
+                        一键导出 Excel
+                    </li>
+                </ul>
+                
+                <div class="model-info">
+                    <h3>支持的免费AI模型</h3>
+                    <div class="model-tags">
+                        <span class="model-tag" title="文本推理、表格处理">GLM-4.7-Flash</span>
+                        <span class="model-tag" title="视觉推理、深度思考、OCR">GLM-4.1V-Thinking-Flash</span>
+                        <span class="model-tag" title="图像生成">CogView-3-Flash</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="right-section">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">上传文档</span>
+                        <span class="file-formats">支持 .xlsx .xls .csv .json .docx .doc .png .jpg .jpeg .gif .bmp</span>
+                    </div>
+
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-content">
+                            <div class="file-icon">📁</div>
+                            <p class="upload-text">拖拽文件或图片到此处</p>
+                            <p class="upload-subtext">或点击选择文件</p>
+                            <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.json,.docx,.doc,.png,.jpg,.jpeg,.gif,.bmp" multiple>
+                            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">选择文件</button>
+                        </div>
+                    </div>
+
+                    <div class="file-list" id="fileList"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">AI 功能区</span>
+                        <button class="api-btn" onclick="openApiModal()">API 配置</button>
+                    </div>
+
+                    <div class="ai-function-tabs">
+                        <button class="tab-btn active" onclick="switchTab('process')" data-tab="process">
+                            <span class="tab-icon">📊</span>
+                            智能处理表格
+                        </button>
+                        <button class="tab-btn" onclick="switchTab('chat')" data-tab="chat">
+                            <span class="tab-icon">💬</span>
+                            对话问答
+                        </button>
+                        <button class="tab-btn" onclick="switchTab('ocr')" data-tab="ocr">
+                            <span class="tab-icon">🖼️</span>
+                            图片转表格
+                        </button>
+                        <button class="tab-btn" onclick="switchTab('image')" data-tab="image">
+                            <span class="tab-icon">🎨</span>
+                            AI 生图
+                        </button>
+                    </div>
+
+                    <div class="tab-content active" id="tab-process">
+                        <div class="text-input-area">
+                            <p class="placeholder-text">
+                                输入处理请求，例如：<br>
+                                • 请处理a表格的b列数据转换成纯数字<br>
+                                • 将所有日期格式统一为YYYY-MM-DD<br>
+                                • 筛选出地区为北京的数据<br>
+                                • 统计各地区的数量
+                            </p>
+                            <textarea id="requestInput" placeholder="请输入你的处理要求..." rows="5"></textarea>
+                        </div>
+                        <div class="button-group">
+                            <button class="btn btn-secondary" onclick="clearAll()">清空</button>
+                            <button class="btn btn-primary" onclick="processTableWithAI()">
+                                <span class="btn-icon">🤖</span>
+                                AI 智能处理
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="tab-chat">
+                        <div class="chat-container">
+                            <div class="chat-messages" id="chatMessages">
+                                <div class="chat-welcome">
+                                    <p>👋 你好！我是AI助手，有什么可以帮助你的吗？</p>
+                                    <p class="chat-tips">
+                                        你可以问我：<br>
+                                        • 各种问题和知识<br>
+                                        • 帮你写文案、代码<br>
+                                        • 分析和总结内容<br>
+                                        • 翻译和润色文字
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="chat-input-area">
+                                <textarea id="chatInput" placeholder="输入你的问题..." rows="3"></textarea>
+                                <div class="chat-button-group">
+                                    <button class="btn btn-secondary" onclick="clearChat()">清空对话</button>
+                                    <button class="btn btn-primary" onclick="sendChatMessage()">
+                                        <span class="btn-icon">📤</span>
+                                        发送
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="tab-ocr">
+                        <div class="text-input-area">
+                            <p class="placeholder-text">
+                                上传图片后，AI将自动识别图片内容并转换为表格。<br>
+                                支持识别：<br>
+                                • 表格图片、发票、证件<br>
+                                • 手写表单、清单<br>
+                                • 复杂图表、文档截图
+                            </p>
+                            <textarea id="ocrPrompt" placeholder="可选：输入额外的识别要求，如'只提取金额和日期'..." rows="3"></textarea>
+                        </div>
+                        <div class="button-group">
+                            <button class="btn btn-secondary" onclick="clearAll()">清空</button>
+                            <button class="btn btn-primary" onclick="ocrImageToTable()">
+                                <span class="btn-icon">👁️</span>
+                                AI 识别转表格
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="tab-image">
+                        <div class="text-input-area">
+                            <p class="placeholder-text">
+                                输入图片描述，AI将生成图片。<br>
+                                例如：<br>
+                                • 一张现代风格的表格图标<br>
+                                • 蓝色渐变背景的数据分析图表
+                            </p>
+                            <textarea id="imagePrompt" placeholder="请描述你想生成的图片..." rows="4"></textarea>
+                        </div>
+                        <div class="image-options">
+                            <label>图片尺寸：</label>
+                            <select id="imageSize">
+                                <option value="1024x1024">1024x1024 (正方形)</option>
+                                <option value="768x1024">768x1024 (竖版)</option>
+                                <option value="1024x768">1024x768 (横版)</option>
+                            </select>
+                        </div>
+                        <div class="button-group">
+                            <button class="btn btn-secondary" onclick="clearImagePrompt()">清空</button>
+                            <button class="btn btn-primary" onclick="generateImage()">
+                                <span class="btn-icon">🎨</span>
+                                生成图片
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="preview-section" id="previewSection" style="display: none;">
+            <div class="preview-header">
+                <h2>表格预览</h2>
+                <div class="preview-actions">
+                    <button class="btn btn-secondary" onclick="hidePreview()">关闭预览</button>
+                    <button class="btn btn-primary export-btn" onclick="exportTable()">📊 导出表格</button>
+                </div>
+            </div>
+            <div class="table-container" id="tableContainer"></div>
+        </div>
+
+        <div class="image-result-section" id="imageResultSection" style="display: none;">
+            <div class="preview-header">
+                <h2>生成结果</h2>
+                <div class="preview-actions">
+                    <button class="btn btn-secondary" onclick="hideImageResult()">关闭</button>
+                    <button class="btn btn-primary" onclick="downloadImage()">📥 下载图片</button>
+                </div>
+            </div>
+            <div class="image-container" id="imageContainer"></div>
+        </div>
+
+        <footer>
+            <div class="footer-content">
+                <div class="stats">
+                    <span class="stat-icon">😀</span>
+                    <span class="stat-icon">😭</span>
+                    <span class="stat-icon">😎</span>
+                    <span class="stat-icon">👍</span>
+                    <span class="stat-text">● 10K+ 用户在使用</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <div class="modal-overlay" id="apiModal" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>API 配置</h3>
+                <button class="modal-close" onclick="closeApiModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>API Key <span class="required">*</span></label>
+                    <input type="password" id="apiKey" placeholder="请输入智谱AI API Key">
+                </div>
+                <div class="form-group">
+                    <label>语言模型 <span class="optional">(用于表格处理)</span></label>
+                    <select id="textModel">
+                        <option value="glm-4.7-flash">GLM-4.7-Flash (推荐，免费)</option>
+                        <option value="glm-4-flash">GLM-4-Flash (免费)</option>
+                        <option value="glm-4-flashx-250414">GLM-4-FlashX (免费，更快)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>视觉模型 <span class="optional">(用于图片识别)</span></label>
+                    <select id="visionModel">
+                        <option value="glm-4.1v-thinking-flash">GLM-4.1V-Thinking-Flash (推荐，免费，深度思考)</option>
+                        <option value="glm-4.6v-flash">GLM-4.6V-Flash (免费)</option>
+                        <option value="glm-4v-flash">GLM-4V-Flash (免费)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>图像生成模型 <span class="optional">(用于AI生图)</span></label>
+                    <select id="imageModel">
+                        <option value="cogview-3-flash">CogView-3-Flash (免费)</option>
+                    </select>
+                </div>
+                <p class="api-note">
+                    💡 所有模型均为智谱AI免费模型，API Key 仅存储在本地浏览器中。<br>
+                    获取API Key: <a href="https://open.bigmodel.cn" target="_blank">open.bigmodel.cn</a>
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="openTestModal()">测试连接</button>
+                <button class="btn btn-secondary" onclick="closeApiModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveApiConfig()">保存配置</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="testModal" style="display: none;">
+        <div class="modal" style="max-width: 360px;">
+            <div class="modal-header">
+                <h3>选择测试模型</h3>
+                <button class="modal-close" onclick="closeTestModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>API 类型</label>
+                    <select id="testApiType" onchange="updateTestModelSelect()">
+                        <option value="text">语言模型（表格处理）</option>
+                        <option value="vision">视觉模型（图片识别）</option>
+                        <option value="image">图像生成模型</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>测试模型</label>
+                    <select id="testModelSelect">
+                    </select>
+                </div>
+                <p class="api-note" style="font-size: 11px;">
+                    ⚠️ 每次只测试一个模型，避免触发频率限制
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeTestModal()">取消</button>
+                <button class="btn btn-primary" onclick="testSelectedModel()">开始测试</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p class="loading-text" id="loadingText">处理中...</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
