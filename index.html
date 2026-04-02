@@ -247,8 +247,21 @@
             </div>
             <div class="modal-body">
                 <div class="form-group">
+                    <label>调用模式</label>
+                    <select id="callMode" onchange="toggleCloudFunctionConfig()">
+                        <option value="direct">直连模式（直接调用API）</option>
+                        <option value="cloud">云函数模式（排队调用，解决并发限制）</option>
+                    </select>
+                </div>
+                <div class="form-group" id="apiKeyGroup">
                     <label>API Key <span class="required">*</span></label>
                     <input type="password" id="apiKey" placeholder="请输入智谱AI API Key">
+                    <small style="color: #6b7280; font-size: 12px;">直连模式需要API Key</small>
+                </div>
+                <div class="form-group" id="cloudFunctionUrlGroup" style="display: none;">
+                    <label>云函数URL <span class="required">*</span></label>
+                    <input type="text" id="cloudFunctionUrl" placeholder="例如: https://xxx.memfiredb.com/api/v1/functions/smarttable">
+                    <small style="color: #6b7280; font-size: 12px;">云函数模式：API Key已内置在云函数中，无需配置</small>
                 </div>
                 <div class="form-group">
                     <label>语言模型 <span class="optional">(用于表格处理)</span></label>
@@ -273,8 +286,8 @@
                     </select>
                 </div>
                 <p class="api-note">
-                    💡 所有模型均为智谱AI免费模型，API Key 仅存储在本地浏览器中。<br>
-                    获取API Key: <a href="https://open.bigmodel.cn" target="_blank">open.bigmodel.cn</a>
+                    💡 <strong>直连模式：</strong>需要API Key，直接调用API<br>
+                    <strong>云函数模式：</strong>只需云函数URL，API Key已内置在云函数中，更安全
                 </p>
             </div>
             <div class="modal-footer">
