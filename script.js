@@ -6,28 +6,20 @@ let isApiRequestInProgress = false;
 let apiRequestQueue = [];
 let chatHistory = [];
 
-const ZHIPU_API_BASE = 'https://open.bigmodel.cn/api/paas/v4';
-
 const DEFAULT_MODELS = {
     text: 'glm-4.7-flash',
     vision: 'glm-4.1v-thinking-flash',
     image: 'cogview-3-flash'
 };
 
-const API_TIMEOUT = 120000;
-const MIN_REQUEST_INTERVAL = 5000;
-
-let lastRequestTime = 0;
-let useCloudFunction = false;
+const CLOUD_FUNCTION_URL = 'https://first-my-cloudbase-3dcmv2ddd0522-1258551279.service.tcloudbase.com/smarttable';
 
 async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function callCloudFunction(params) {
-    const cloudFunctionUrl = apiConfig.cloudFunctionUrl || 'https://first-my-cloudbase-3dcmv2ddd0522-1258551279.service.tcloudbase.com/smarttable';
-    
-    const response = await fetch(cloudFunctionUrl, {
+    const response = await fetch(CLOUD_FUNCTION_URL, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -42,7 +34,7 @@ async function callCloudFunction(params) {
     
     const result = await response.json();
     
-    if (result.error) {
+    if (!result.success && result.error) {
         throw new Error(result.error || '云函数调用失败');
     }
     
@@ -404,18 +396,6 @@ async function processTableWithAI() {
         return;
     }
     
-    if (apiConfig.callMode === 'direct' && !apiConfig.apiKey) {
-        alert('直连模式需要配置API Key');
-        openApiModal();
-        return;
-    }
-    
-    if (apiConfig.callMode === 'cloud' && !apiConfig.cloudFunctionUrl) {
-        alert('云函数模式需要配置云函数URL');
-        openApiModal();
-        return;
-    }
-    
     const requestInput = document.getElementById('requestInput').value.trim();
     
     if (uploadedFiles.length === 0 && !requestInput) {
@@ -496,19 +476,7 @@ async function ocrImageToTable() {
     }
     
     if (!apiConfig) {
-        alert('请先配置API');
-        openApiModal();
-        return;
-    }
-    
-    if (apiConfig.callMode === 'direct' && !apiConfig.apiKey) {
-        alert('直连模式需要配置API Key');
-        openApiModal();
-        return;
-    }
-    
-    if (apiConfig.callMode === 'cloud' && !apiConfig.cloudFunctionUrl) {
-        alert('云函数模式需要配置云函数URL');
+        alert('请先配置模型');
         openApiModal();
         return;
     }
@@ -587,47 +555,17 @@ async function callTextModel(request, currentData) {
     
     console.log('文本模型请求:', model, '请求内容:', userMessage.substring(0, 100));
     
-    if (useCloudFunction) {
-        const result = await callCloudFunction({
-            type: 'chat',
-            model: model,
-            messages: messages,
-            maxTokens: 8192
-        });
-        
-        if (result && result.content) {
-            return parseAIResponse({ choices: [{ message: { content: result.content } }] });
-        }
-        return parseAIResponse(result);
-    }
-    
-    const requestBody = {
+    const result = await callCloudFunction({
+        type: 'chat',
         model: model,
         messages: messages,
-        max_tokens: 8192,
-        temperature: 0.3
-    };
-    
-    const response = await fetchWithRetry(`${ZHIPU_API_BASE}/chat/completions`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiConfig.apiKey}`
-        },
-        body: JSON.stringify(requestBody)
+        maxTokens: 8192
     });
     
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('API错误响应:', errorData);
-        if (response.status === 429) {
-            throw new Error('API调用频率超限，请稍后再试（免费模型有调用频率限制）');
-        }
-        throw new Error(errorData.error?.message || `API请求失败: ${response.status}`);
+    if (result && result.content) {
+        return parseAIResponse({ choices: [{ message: { content: result.content } }] });
     }
-    
-    const responseData = await response.json();
-    return parseAIResponse(responseData);
+    return parseAIResponse(result);
 }
 
 function parseAIResponse(responseData) {
@@ -722,45 +660,16 @@ async function callVisionModel(base64Image, extraPrompt) {
     
     console.log('视觉模型请求:', model, '图片长度:', base64Image.length);
     
-    if (useCloudFunction) {
-        const result = await callCloudFunction({
-            type: 'vision',
-            model: model,
-            messages: messages
-        });
-        
-        if (result && result.content) {
-            return parseVisionResponse({ choices: [{ message: { content: result.content } }] });
-        }
-        return parseVisionResponse(result);
-    }
-    
-    const requestBody = {
+    const result = await callCloudFunction({
+        type: 'vision',
         model: model,
-        messages: messages,
-        max_tokens: 8192
-    };
+        messages: messages
+    });
     
-    const response = await fetchWithRetry(`${ZHIPU_API_BASE}/chat/completions`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiConfig.apiKey}`
-        },
-        body: JSON.stringify(requestBody)
-    }, 180000);
-    
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('API错误响应:', errorData);
-        if (response.status === 429) {
-            throw new Error('API调用频率超限，请稍后再试（免费模型有调用频率限制）');
-        }
-        throw new Error(errorData.error?.message || `API请求失败: ${response.status}`);
+    if (result && result.content) {
+        return parseVisionResponse({ choices: [{ message: { content: result.content } }] });
     }
-    
-    const responseData = await response.json();
-    return parseVisionResponse(responseData);
+    return parseVisionResponse(result);
 }
 
 function parseVisionResponse(responseData) {
@@ -828,19 +737,7 @@ async function generateImage() {
     }
     
     if (!apiConfig) {
-        alert('请先配置API');
-        openApiModal();
-        return;
-    }
-    
-    if (apiConfig.callMode === 'direct' && !apiConfig.apiKey) {
-        alert('直连模式需要配置API Key');
-        openApiModal();
-        return;
-    }
-    
-    if (apiConfig.callMode === 'cloud' && !apiConfig.cloudFunctionUrl) {
-        alert('云函数模式需要配置云函数URL');
+        alert('请先配置模型');
         openApiModal();
         return;
     }
@@ -860,62 +757,24 @@ async function generateImage() {
     try {
         const model = apiConfig.imageModel || DEFAULT_MODELS.image;
         
-        if (useCloudFunction) {
-            const result = await callCloudFunction({
-                type: 'image',
-                model: model,
-                prompt: prompt,
-                size: size
-            });
+        const result = await callCloudFunction({
+            type: 'image',
+            model: model,
+            prompt: prompt,
+            size: size
+        });
+        
+        if (result && result.content && result.content.data && result.content.data.length > 0) {
+            const imageUrl = result.content.data[0].url;
+            generatedImageUrl = imageUrl;
             
-            if (result && result.content && result.content.data && result.content.data.length > 0) {
-                const imageUrl = result.content.data[0].url;
-                generatedImageUrl = imageUrl;
-                
-                const imageContainer = document.getElementById('imageContainer');
-                imageContainer.innerHTML = `<img src="${imageUrl}" alt="AI生成的图片">`;
-                
-                document.getElementById('imageResultSection').style.display = 'block';
-                hidePreview();
-            } else {
-                throw new Error('未能获取生成的图片');
-            }
+            const imageContainer = document.getElementById('imageContainer');
+            imageContainer.innerHTML = `<img src="${imageUrl}" alt="AI生成的图片">`;
+            
+            document.getElementById('imageResultSection').style.display = 'block';
+            hidePreview();
         } else {
-            const response = await fetchWithTimeout(`${ZHIPU_API_BASE}/images/generations`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiConfig.apiKey}`
-                },
-                body: JSON.stringify({
-                    model: model,
-                    prompt: prompt,
-                    size: size
-                })
-            }, 120000);
-            
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                if (response.status === 429) {
-                    throw new Error('API调用频率超限，请稍后再试');
-                }
-                throw new Error(errorData.error?.message || `API请求失败: ${response.status}`);
-            }
-            
-            const responseData = await response.json();
-            
-            if (responseData.data && responseData.data.length > 0) {
-                const imageUrl = responseData.data[0].url;
-                generatedImageUrl = imageUrl;
-                
-                const imageContainer = document.getElementById('imageContainer');
-                imageContainer.innerHTML = `<img src="${imageUrl}" alt="AI生成的图片">`;
-                
-                document.getElementById('imageResultSection').style.display = 'block';
-                hidePreview();
-            } else {
-                throw new Error('未能获取生成的图片');
-            }
+            throw new Error('未能获取生成的图片');
         }
         
         hideLoading();
@@ -935,19 +794,7 @@ async function sendChatMessage() {
     }
     
     if (!apiConfig) {
-        alert('请先配置API');
-        openApiModal();
-        return;
-    }
-    
-    if (apiConfig.callMode === 'direct' && !apiConfig.apiKey) {
-        alert('直连模式需要配置API Key');
-        openApiModal();
-        return;
-    }
-    
-    if (apiConfig.callMode === 'cloud' && !apiConfig.cloudFunctionUrl) {
-        alert('云函数模式需要配置云函数URL');
+        alert('请先配置模型');
         openApiModal();
         return;
     }
@@ -977,36 +824,24 @@ async function sendChatMessage() {
             ...chatHistory.slice(-10)
         ];
         
-        const response = await fetchWithRetry(`${ZHIPU_API_BASE}/chat/completions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiConfig.apiKey}`
-            },
-            body: JSON.stringify({
-                model: model,
-                messages: messages,
-                max_tokens: 2048,
-                temperature: 0.7
-            })
-        }, 60000, 2);
+        const result = await callCloudFunction({
+            type: 'chat',
+            model: model,
+            messages: messages,
+            maxTokens: 2048
+        });
         
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            if (response.status === 429) {
-                throw new Error('API调用频率超限，请稍后再试');
-            }
-            throw new Error(errorData.error?.message || `API请求失败: ${response.status}`);
+        let responseText = '';
+        if (result && result.content) {
+            responseText = result.content;
         }
         
-        const data = await response.json();
-        hideTypingIndicator();
+        if (!responseText) {
+            throw new Error('AI返回内容为空');
+        }
         
-        const reply = data.choices?.[0]?.message?.content || data.choices?.[0]?.message?.reasoning_content || '抱歉，我无法理解您的问题。';
-        
-        chatHistory.push({ role: 'assistant', content: reply });
-        
-        addChatMessage('assistant', reply);
+        chatHistory.push({ role: 'assistant', content: responseText });
+        addChatMessage('assistant', responseText);
         
         isApiRequestInProgress = false;
     } catch (error) {
@@ -1156,14 +991,9 @@ function openApiModal() {
     modal.style.display = 'flex';
     
     if (apiConfig) {
-        document.getElementById('callMode').value = apiConfig.callMode || 'direct';
-        document.getElementById('apiKey').value = apiConfig.apiKey || '';
-        document.getElementById('cloudFunctionUrl').value = apiConfig.cloudFunctionUrl || '';
         document.getElementById('textModel').value = apiConfig.textModel || DEFAULT_MODELS.text;
         document.getElementById('visionModel').value = apiConfig.visionModel || DEFAULT_MODELS.vision;
         document.getElementById('imageModel').value = apiConfig.imageModel || DEFAULT_MODELS.image;
-        
-        toggleCloudFunctionConfig();
     }
 }
 
@@ -1172,35 +1002,15 @@ function closeApiModal() {
 }
 
 function saveApiConfig() {
-    const callMode = document.getElementById('callMode').value;
-    const apiKey = document.getElementById('apiKey').value.trim();
-    const cloudFunctionUrl = document.getElementById('cloudFunctionUrl').value.trim();
     const textModel = document.getElementById('textModel').value;
     const visionModel = document.getElementById('visionModel').value;
     const imageModel = document.getElementById('imageModel').value;
     
-    if (callMode === 'direct') {
-        if (!apiKey) {
-            alert('直连模式需要输入API Key');
-            return;
-        }
-    } else if (callMode === 'cloud') {
-        if (!cloudFunctionUrl) {
-            alert('云函数模式需要输入云函数URL');
-            return;
-        }
-    }
-    
     apiConfig = {
-        callMode: callMode,
-        apiKey: apiKey,
-        cloudFunctionUrl: cloudFunctionUrl,
         textModel: textModel,
         visionModel: visionModel,
         imageModel: imageModel
     };
-    
-    useCloudFunction = (callMode === 'cloud');
     
     localStorage.setItem('smartTableApiConfig', JSON.stringify(apiConfig));
     
@@ -1214,24 +1024,9 @@ function loadApiConfig() {
     if (saved) {
         try {
             apiConfig = JSON.parse(saved);
-            useCloudFunction = (apiConfig.callMode === 'cloud');
         } catch (e) {
-            console.error('加载API配置失败:', e);
+            console.error('加载配置失败:', e);
         }
-    }
-}
-
-function toggleCloudFunctionConfig() {
-    const callMode = document.getElementById('callMode').value;
-    const apiKeyGroup = document.getElementById('apiKeyGroup');
-    const cloudFunctionUrlGroup = document.getElementById('cloudFunctionUrlGroup');
-    
-    if (callMode === 'cloud') {
-        apiKeyGroup.style.display = 'none';
-        cloudFunctionUrlGroup.style.display = 'block';
-    } else {
-        apiKeyGroup.style.display = 'block';
-        cloudFunctionUrlGroup.style.display = 'none';
     }
 }
 
@@ -1240,19 +1035,11 @@ function updateApiStatus() {
     const statusText = statusEl.querySelector('.status-text');
     
     if (apiConfig) {
-        if (apiConfig.callMode === 'cloud' && apiConfig.cloudFunctionUrl) {
-            statusEl.classList.add('configured');
-            statusText.textContent = '云函数已配置';
-        } else if (apiConfig.callMode === 'direct' && apiConfig.apiKey) {
-            statusEl.classList.add('configured');
-            statusText.textContent = 'API已配置';
-        } else {
-            statusEl.classList.remove('configured');
-            statusText.textContent = '请配置API';
-        }
+        statusEl.classList.add('configured');
+        statusText.textContent = '已配置';
     } else {
         statusEl.classList.remove('configured');
-        statusText.textContent = '请配置API';
+        statusText.textContent = '请配置模型';
     }
 }
 
