@@ -12,7 +12,7 @@ const DEFAULT_MODELS = {
     image: 'cogview-3-flash'
 };
 
-const CLOUD_FUNCTION_URL = 'https://first-my-cloudbase-3dcmv2ddd0522-1258551279.service.tcloudbase.com/smarttable';
+const CLOUD_FUNCTION_URL = 'https://first-my-cloudbase-3dcmv2ddd0522-1258551279.service.tcloudbase.com/smarttable-api';
 
 async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
