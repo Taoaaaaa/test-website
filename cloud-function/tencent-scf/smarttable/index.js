@@ -13,6 +13,24 @@ const DEFAULT_MODELS = {
     image: 'cogview-3-flash'
 };
 
+const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+    'Access-Control-Max-Age': '86400'
+};
+
+function corsResponse(statusCode, body) {
+    return {
+        statusCode: statusCode,
+        headers: {
+            ...CORS_HEADERS,
+            'Content-Type': 'application/json'
+        },
+        body: typeof body === 'string' ? body : JSON.stringify(body)
+    };
+}
+
 function makeRequest(options, body) {
     return new Promise((resolve, reject) => {
         const req = https.request(options, (res) => {
@@ -72,7 +90,7 @@ async function callZhipuAPI(apiKey, model, messages, maxTokens = 4096) {
                     if (line.startsWith('data: ')) {
                         const data = line.slice(6);
                         if (data === '[DONE]') continue;
-                        
+
                         try {
                             const json = JSON.parse(data);
                             const delta = json.choices?.[0]?.delta;
@@ -127,13 +145,13 @@ async function callZhipuImageAPI(apiKey, model, prompt, size) {
 
 async function processQueue() {
     if (isProcessing || queue.length === 0) return;
-    
+
     isProcessing = true;
     const task = queue.shift();
-    
+
     try {
         let result;
-        
+
         switch (task.type) {
             case 'chat':
                 result = await callZhipuAPI(task.apiKey, task.model, task.messages, task.maxTokens);
@@ -147,7 +165,7 @@ async function processQueue() {
             default:
                 throw new Error('Invalid type');
         }
-        
+
         task.resolve({
             success: true,
             content: result,
@@ -162,9 +180,9 @@ async function processQueue() {
     }
 }
 
-exports.main = async (event, context) => {
+async function handleRequest(params) {
     const ZHIPU_API_KEY = process.env.ZHIPU_API_KEY || '';
-    
+
     if (!ZHIPU_API_KEY) {
         return {
             success: false,
@@ -172,35 +190,70 @@ exports.main = async (event, context) => {
         };
     }
 
-    try {
-        const { type, messages, model, prompt, size, maxTokens } = event;
-        
-        const position = queue.length;
+    const { type, messages, model, prompt, size, maxTokens } = params;
+    const position = queue.length;
 
-        return new Promise((resolve) => {
-            queue.push({
-                type: type,
-                apiKey: ZHIPU_API_KEY,
-                model: model || DEFAULT_MODELS[type] || DEFAULT_MODELS.chat,
-                messages: messages,
-                prompt: prompt,
-                size: size || '1024x1024',
-                maxTokens: maxTokens || 4096,
-                position: position,
-                resolve: (result) => {
-                    resolve(result);
-                },
-                reject: (err) => {
-                    resolve({
-                        success: false,
-                        error: err.message
-                    });
-                }
-            });
-            
-            processQueue();
+    return new Promise((resolve) => {
+        queue.push({
+            type: type,
+            apiKey: ZHIPU_API_KEY,
+            model: model || DEFAULT_MODELS[type] || DEFAULT_MODELS.chat,
+            messages: messages,
+            prompt: prompt,
+            size: size || '1024x1024',
+            maxTokens: maxTokens || 4096,
+            position: position,
+            resolve: (result) => {
+                resolve(result);
+            },
+            reject: (err) => {
+                resolve({
+                    success: false,
+                    error: err.message
+                });
+            }
         });
 
+        processQueue();
+    });
+}
+
+exports.main = async (event, context) => {
+    if (event.httpMethod === 'OPTIONS') {
+        return {
+            statusCode: 204,
+            headers: CORS_HEADERS,
+            body: ''
+        };
+    }
+
+    if (event.httpMethod && event.headers) {
+        let requestBody = event.body;
+        if (typeof requestBody === 'string') {
+            try {
+                requestBody = JSON.parse(requestBody);
+            } catch (e) {
+                return corsResponse(400, {
+                    success: false,
+                    error: '请求体解析失败'
+                });
+            }
+        }
+
+        try {
+            const result = await handleRequest(requestBody || {});
+            return corsResponse(200, result);
+        } catch (error) {
+            console.error('Error:', error);
+            return corsResponse(500, {
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    try {
+        return await handleRequest(event);
     } catch (error) {
         console.error('Error:', error);
         return {
