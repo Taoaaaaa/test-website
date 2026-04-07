@@ -21,6 +21,17 @@ async function initCloudBase() {
         region: 'ap-shanghai'
     });
     
+    const auth = cloudbaseApp.auth();
+    const loginState = await auth.getLoginState();
+    
+    if (!loginState) {
+        console.log('正在进行匿名登录...');
+        await auth.signInAnonymously();
+        console.log('匿名登录成功');
+    } else {
+        console.log('已登录，用户ID:', loginState.user?.uid);
+    }
+    
     return cloudbaseApp;
 }
 
