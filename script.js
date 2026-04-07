@@ -5,6 +5,7 @@ let apiConfig = null;
 let isApiRequestInProgress = false;
 let apiRequestQueue = [];
 let chatHistory = [];
+let cloudbaseApp = null;
 
 const DEFAULT_MODELS = {
     text: 'glm-4.7-flash',
@@ -12,33 +13,42 @@ const DEFAULT_MODELS = {
     image: 'cogview-3-flash'
 };
 
-const CLOUD_FUNCTION_URL = 'https://first-my-cloudbase-3dcmv2ddd0522-1258551279.ap-shanghai.app.tcloudbase.com/smarttable';
+async function initCloudBase() {
+    if (cloudbaseApp) return cloudbaseApp;
+    
+    cloudbaseApp = cloudbase.init({
+        env: 'first-my-cloudbase-3dcmv2ddd0522',
+        region: 'ap-shanghai'
+    });
+    
+    return cloudbaseApp;
+}
 
 async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function callCloudFunction(params) {
-    const response = await fetch(CLOUD_FUNCTION_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(params)
-    });
+    const app = await initCloudBase();
     
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`云函数请求失败: ${response.status} - ${errorText}`);
+    try {
+        const result = await app.callFunction({
+            name: 'smarttable-api',
+            data: params
+        });
+        
+        if (result.result && typeof result.result === 'object') {
+            if (!result.result.success && result.result.error) {
+                throw new Error(result.result.error);
+            }
+            return result.result;
+        }
+        
+        return result.result;
+    } catch (error) {
+        console.error('云函数调用错误:', error);
+        throw error;
     }
-    
-    const result = await response.json();
-    
-    if (!result.success && result.error) {
-        throw new Error(result.error || '云函数调用失败');
-    }
-    
-    return result;
 }
 
 async function waitForRateLimit() {
