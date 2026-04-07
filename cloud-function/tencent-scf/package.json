@@ -1,0 +1,7 @@
+{
+  "name": "smarttable-scf",
+  "version": "1.0.0",
+  "description": "SmartTable 腾讯云SCF云函数",
+  "main": "index.js",
+  "dependencies": {}
+}

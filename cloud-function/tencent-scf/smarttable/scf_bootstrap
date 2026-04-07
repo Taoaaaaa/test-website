@@ -1,0 +1,10 @@
+#!/bin/bash
+export PYTHONPATH=/opt/python:/code
+export PATH=/opt/python/bin:/usr/local/bin:/usr/bin:/bin
+export LD_LIBRARY_PATH=/opt/python/lib:/usr/local/lib:/usr/lib:/lib
+
+if [ -f "/code/index.js" ]; then
+    node /code/index.js
+else
+    exec node /code/index.js
+fi
